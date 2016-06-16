@@ -4,17 +4,19 @@ import java.io.Reader;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.ansj.domain.Result;
 import org.ansj.domain.Term;
 import org.ansj.library.UserDefineLibrary;
-import org.ansj.recognition.AsianPersonRecognition;
-import org.ansj.recognition.ForeignPersonRecognition;
-import org.ansj.recognition.NumRecognition;
-import org.ansj.recognition.UserDefineRecognition;
+import org.ansj.recognition.arrimpl.AsianPersonRecognition;
+import org.ansj.recognition.arrimpl.ForeignPersonRecognition;
+import org.ansj.recognition.arrimpl.NumRecognition;
+import org.ansj.recognition.arrimpl.UserDefineRecognition;
 import org.ansj.splitWord.Analysis;
 import org.ansj.util.AnsjReader;
 import org.ansj.util.Graph;
 import org.ansj.util.MyStaticValue;
 import org.ansj.util.NameFix;
+import org.ansj.util.TermUtil.InsertTermType;
 import org.nlpcn.commons.lang.tire.domain.Forest;
 
 /**
@@ -31,33 +33,34 @@ public class ToAnalysis extends Analysis {
 		Merger merger = new Merger() {
 			@Override
 			public List<Term> merger() {
-
-				// 用户自定义词典的识别
-				userDefineRecognition(graph, forests);
 				
 				graph.walkPath();
+				
 				// 数字发现
 				if (MyStaticValue.isNumRecognition && graph.hasNum) {
-					NumRecognition.recognition(graph.terms);
+					new NumRecognition().recognition(graph.terms);
 				}
-
+				
 				// 姓名识别
 				if (graph.hasPerson && MyStaticValue.isNameRecognition) {
 					// 亚洲人名识别
-					new AsianPersonRecognition(graph.terms).recognition();
+					new AsianPersonRecognition().recognition(graph.terms);
 					graph.walkPathByScore();
 					NameFix.nameAmbiguity(graph.terms);
 					// 外国人名识别
-					new ForeignPersonRecognition(graph.terms).recognition();
+					new ForeignPersonRecognition().recognition(graph.terms);
 					graph.walkPathByScore();
 				}
+
+				// 用户自定义词典的识别
+				userDefineRecognition(graph, forests);
 
 
 				return getResult();
 			}
 
 			private void userDefineRecognition(final Graph graph, Forest... forests) {
-				new UserDefineRecognition(graph.terms, forests).recognition();
+				new UserDefineRecognition(InsertTermType.SKIP, forests).recognition(graph.terms);
 				graph.rmLittlePath();
 				graph.walkPathByScore();
 			}
@@ -77,9 +80,6 @@ public class ToAnalysis extends Analysis {
 		return merger.merger();
 	}
 
-	private ToAnalysis() {
-	};
-
 	/**
 	 * 用户自己定义的词典
 	 * 
@@ -97,11 +97,11 @@ public class ToAnalysis extends Analysis {
 		super.resetContent(new AnsjReader(reader));
 	}
 
-	public static List<Term> parse(String str) {
+	public static Result parse(String str) {
 		return new ToAnalysis().parseStr(str);
 	}
 
-	public static List<Term> parse(String str, Forest... forests) {
+	public static Result parse(String str, Forest... forests) {
 		return new ToAnalysis(forests).parseStr(str);
 	}
 }

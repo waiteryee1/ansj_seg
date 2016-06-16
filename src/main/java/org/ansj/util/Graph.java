@@ -1,12 +1,14 @@
 package org.ansj.util;
 
 import java.util.List;
+import java.util.Map;
 
 import org.ansj.domain.AnsjItem;
 import org.ansj.domain.Term;
 import org.ansj.domain.TermNatures;
 import org.ansj.library.DATDictionary;
 import org.ansj.splitWord.Analysis.Merger;
+import org.ansj.util.TermUtil.InsertTermType;
 
 /**
  * 最短路径
@@ -59,12 +61,8 @@ public class Graph {
 		if (!hasPerson && term.termNatures().personAttr.flag) {
 			hasPerson = true;
 		}
-		// 将词放到图的位置
-		if (terms[term.getOffe()] == null) {
-			terms[term.getOffe()] = term;
-		} else {
-			terms[term.getOffe()] = term.setNext(terms[term.getOffe()]);
-		}
+		TermUtil.insertTerm(terms, term, InsertTermType.REPLACE);
+
 	}
 
 	/**
@@ -104,7 +102,6 @@ public class Graph {
 		int length = terms.length - 1;
 		for (int i = 0; i < length; i++) {
 			maxTerm = getMaxTerm(i);
-
 			if (maxTerm == null)
 				continue;
 
@@ -158,24 +155,19 @@ public class Graph {
 	}
 
 	/**
-	 * 得道最到本行最大term
+	 * 得道最到本行最大term,也就是最右面的term
 	 * 
 	 * @param i
 	 * @return
 	 */
 	private Term getMaxTerm(int i) {
-		// TODO Auto-generated method stub
 		Term maxTerm = terms[i];
 		if (maxTerm == null) {
 			return null;
 		}
-		int maxTo = maxTerm.toValue();
 		Term term = maxTerm;
 		while ((term = term.next()) != null) {
-			if (maxTo < term.toValue()) {
-				maxTo = term.toValue();
-				maxTerm = term;
-			}
+			maxTerm = term;
 		}
 		return maxTerm;
 	}
@@ -270,15 +262,24 @@ public class Graph {
 	}
 
 	public void walkPath() {
+		walkPath(null);
+	}
+
+	/**
+	 * 干涉性增加相对权重
+	 * 
+	 * @param relationMap
+	 */
+	public void walkPath(Map<String, Double> relationMap) {
 		Term term = null;
 		// BEGIN先行打分
-		merger(root, 0);
+		merger(root, 0, relationMap);
 		// 从第一个词开始往后打分
 		for (int i = 0; i < terms.length; i++) {
 			term = terms[i];
 			while (term != null && term.from() != null && term != end) {
 				int to = term.toValue();
-				merger(term, to);
+				merger(term, to, relationMap);
 				term = term.next();
 			}
 		}
@@ -294,13 +295,13 @@ public class Graph {
 	 *            起始属性
 	 * @param to
 	 */
-	private void merger(Term fromTerm, int to) {
+	private void merger(Term fromTerm, int to, Map<String, Double> relationMap) {
 		Term term = null;
 		if (terms[to] != null) {
 			term = terms[to];
 			while (term != null) {
 				// 关系式to.set(from)
-				term.setPathScore(fromTerm);
+				term.setPathScore(fromTerm, relationMap);
 				term = term.next();
 			}
 		} else {
@@ -310,7 +311,7 @@ public class Graph {
 				tn = TermNatures.NULL;
 			}
 			terms[to] = new Term(String.valueOf(c), to, tn);
-			terms[to].setPathScore(fromTerm);
+			terms[to].setPathScore(fromTerm, relationMap);
 		}
 	}
 
@@ -344,9 +345,9 @@ public class Graph {
 			if (term == null) {
 				continue;
 			}
-			System.out.print(term.getName() + "\t" + term.selfScore() + " ,");
-			if ((term = term.next()) != null) {
-				System.out.print(term + "\t" + term.selfScore() + " ,");
+			System.out.print(term.getName() + "\t" + term.score() + " ,");
+			while ((term = term.next()) != null) {
+				System.out.print(term + "\t" + term.score() + " ,");
 			}
 			System.out.println();
 		}

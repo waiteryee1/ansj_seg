@@ -1,11 +1,17 @@
 package org.ansj.domain;
 
+import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 
 import org.ansj.util.MathUtil;
 import org.nlpcn.commons.lang.util.StringUtil;
 
-public class Term implements Comparable<Term> {
+public class Term implements Serializable{
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	// 当前词
 	private String name;
 	//
@@ -89,10 +95,10 @@ public class Term implements Comparable<Term> {
 	 * 
 	 * @param term
 	 */
-	public void setPathScore(Term from) {
+	public void setPathScore(Term from, Map<String, Double> relationMap) {
 		// 维特比进行最优路径的构建
-		double score = MathUtil.compuScore(from, this);
-		if (this.from == null || this.score >= score) {
+		double score = MathUtil.compuScore(from, this, relationMap);
+		if (this.from == null || this.score == 0 || this.score >= score) {
 			this.setFromAndScore(from, score);
 		}
 	}
@@ -111,7 +117,6 @@ public class Term implements Comparable<Term> {
 	}
 
 	private void setFromAndScore(Term from, double score) {
-		// TODO Auto-generated method stub
 		this.from = from;
 		this.score = score;
 	}
@@ -181,16 +186,6 @@ public class Term implements Comparable<Term> {
 		return termNatures;
 	}
 
-	@Override
-	public int compareTo(Term o) {
-		// TODO Auto-generated method stub
-		if (this.score > o.score) {
-			return 0;
-		} else {
-			return 1;
-		}
-	}
-
 	public void setNature(Nature nature) {
 		this.nature = nature;
 	}
@@ -211,7 +206,7 @@ public class Term implements Comparable<Term> {
 	@Override
 	public String toString() {
 		if ("null".equals(nature.natureStr)) {
-			return name;
+			return this.getRealName();
 		}
 		return this.getRealName() + "/" + nature.natureStr;
 	}

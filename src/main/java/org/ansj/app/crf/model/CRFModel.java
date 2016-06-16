@@ -1,123 +1,110 @@
 package org.ansj.app.crf.model;
 
-import java.io.BufferedReader;
-import java.util.HashMap;
-import java.util.Map;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.ZipException;
 
+import org.ansj.app.crf.Config;
 import org.ansj.app.crf.Model;
-import org.ansj.app.crf.pojo.Feature;
-import org.ansj.app.crf.pojo.TempFeature;
-import org.ansj.app.crf.pojo.Template;
+import org.nlpcn.commons.lang.tire.domain.SmartForest;
 import org.nlpcn.commons.lang.util.IOUtil;
-import org.nlpcn.commons.lang.util.StringUtil;
 
+/**
+ * 加载ansj格式的crfmodel,目前此model格式是通过crf++ 或者wapiti生成的
+ * 
+ * @author Ansj
+ *
+ */
 public class CRFModel extends Model {
+	
+	public static final String version = "ansj1" ;
 
-	/**
-	 * 解析crf++生成的可可视txt文件
-	 */
-	private void parseFile(String path) throws Exception {
-		// TODO Auto-generated method stub
-		BufferedReader reader = IOUtil.getReader(path, IOUtil.UTF8);
+	public CRFModel(String name) {
+		super(name);
+	}
 
-		String temp = null;
+	@Override
+	public void loadModel(String modelPath) throws Exception {
+		loadModel(IOUtil.getInputStream(modelPath));
+	}
+	
+	public void loadModel(InputStream is) throws Exception{
+		
+		ObjectInputStream ois = null;
 
-		reader.readLine();// version
-		reader.readLine();// cost-factor
+		long start = System.currentTimeMillis();
+		try {
 
-		int maxId = Integer.parseInt(reader.readLine().split(":")[1].trim());// read
-		// maxId
+			ois = new ObjectInputStream(new GZIPInputStream(is));
 
-		reader.readLine();// xsize
-		reader.readLine(); // line
+			ois.readUTF();
 
-		Map<String, Integer> statusMap = new HashMap<String, Integer>();
+			this.status = (float[][]) ois.readObject();
 
-		// read status
-		int tagNum = 0;
-		while ((temp = reader.readLine()) != null) {
-			if (StringUtil.isBlank(temp)) {
-				break;
-			}
-			statusMap.put(temp, tagNum);
-			tagNum++;
-		}
+			int[][] template = (int[][]) ois.readObject();
 
-		status = new double[tagNum][tagNum];
+			this.config = new Config(template);
 
-		// read config
-		StringBuilder sb = new StringBuilder();
-		while ((temp = reader.readLine()) != null) {
-			if (StringUtil.isBlank(temp)) {
-				break;
-			}
-			sb.append(temp + "\n");
-		}
+			int win = 0;
+			int size = 0;
+			String name = null;
 
-		this.template = Template.parse(sb.toString());
+			featureTree = new SmartForest<float[]>();
+			float[] value = null;
+			do {
+				win = ois.readInt();
+				size = ois.readInt();
 
-		this.template.tagNum = tagNum;
-
-		this.template.statusMap = statusMap;
-
-		int featureNum = template.ft.length;
-
-		TempFeature[] tempFeatureArr = new TempFeature[maxId / tagNum];
-
-		String[] split = reader.readLine().split(" ");// read first B
-
-		int bIndex = Integer.parseInt(split[0]) / tagNum;
-
-		TempFeature tf = null;
-
-		while ((temp = reader.readLine()) != null) {
-			if (StringUtil.isBlank(temp)) {
-				break;
-			}
-			tf = new TempFeature(temp, tagNum);
-			tempFeatureArr[tf.id] = tf;
-		}
-
-		myGrad = new HashMap<String, Feature>();
-
-		Feature feature = null;
-		// 填充
-		for (int i = 0; i < tempFeatureArr.length; i++) {
-
-			// 读取转移模板
-			if (i == bIndex) {
-				for (int j = 0; j < tagNum; j++) {
-					for (int j2 = 0; j2 < tagNum; j2++) {
-						status[j][j2] = Double.parseDouble(reader.readLine());
+				for (int i = 0; i < size; i++) {
+					name = ois.readUTF();
+					value = new float[win];
+					for (int j = 0; j < value.length; j++) {
+						value[j] = ois.readFloat();
 					}
+					featureTree.add(name, value);
 				}
-				i += tagNum - 1;
-				continue;
+
+			} while (win == 0 || size == 0);
+
+			LOG.info("load crf model ok ! use time :" + (System.currentTimeMillis() - start));
+
+		} finally {
+			if(is!=null){
+				is.close();
 			}
-			tf = tempFeatureArr[i];
-			feature = myGrad.get(tf.name);
-			if (feature == null) {
-				feature = new Feature(featureNum, tagNum);
-				myGrad.put(tf.name, feature);
-			}
-			for (int j = 0; j < tagNum; j++) {
-				double f = Double.parseDouble(reader.readLine());
-				feature.update(tf.featureId, j, f);
+			if (ois != null) {
+				ois.close();
 			}
 		}
 	}
 
-	/**
-	 * 解析crf 生成的模型 txt文件
-	 * 
-	 * @param modelPath
-	 * @param templatePath
-	 * @return
-	 * @throws Exception
-	 */
-	public static Model parseFileToModel(String modelPath) throws Exception {
-		CRFModel model = new CRFModel();
-		model.parseFile(modelPath);
-		return model;
+	@Override
+	public boolean checkModel(String modelPath) throws IOException {
+		ObjectInputStream inputStream = null ;
+		try {
+			
+			inputStream = new ObjectInputStream(new GZIPInputStream(new FileInputStream(modelPath)));
+
+			String version = inputStream.readUTF() ;
+
+			if (version.equals("ansj1")) { // 加载ansj,model
+				return true;
+			}
+			
+		}catch(ZipException ze){
+		} catch (Exception e) {
+			e.printStackTrace();
+		}finally {
+			if(inputStream!=null){
+				inputStream.close(); 
+			}
+		}
+		return false ;
 	}
+
 }

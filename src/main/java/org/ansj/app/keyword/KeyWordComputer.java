@@ -8,9 +8,7 @@ import java.util.TreeSet;
 
 import org.ansj.domain.Term;
 import org.ansj.splitWord.analysis.NlpAnalysis;
-import org.ansj.util.FilterModifWord;
 import org.nlpcn.commons.lang.util.StringUtil;
-import org.nlpcn.commons.lang.util.WordAlert;
 
 public class KeyWordComputer {
 
@@ -57,9 +55,9 @@ public class KeyWordComputer {
 	private List<Keyword> computeArticleTfidf(String content, int titleLength) {
 		Map<String, Keyword> tm = new HashMap<String, Keyword>();
 
-		List<Term> parse = NlpAnalysis.parse(content);
-		
-		parse = FilterModifWord.modifResult(parse) ;
+		List<Term> parse = NlpAnalysis.parse(content).getTerms();
+		//FIXME: 这个依赖于用户自定义词典的词性,所以得需要另一个方法..
+//		parse = FilterModifWord.updateNature(parse) ;
 		
 		for (Term term : parse) {
 			double weight = getWeight(term, content.length(), titleLength);
