@@ -7,7 +7,7 @@ import org.ansj.dic.LearnTool;
 import org.ansj.domain.Term;
 import org.ansj.library.DATDictionary;
 import org.ansj.library.UserDefineLibrary;
-import org.ansj.recognition.NatureRecognition;
+import org.ansj.recognition.impl.NatureRecognition;
 import org.ansj.splitWord.analysis.IndexAnalysis;
 import org.ansj.splitWord.analysis.NlpAnalysis;
 import org.ansj.splitWord.analysis.ToAnalysis;
@@ -22,6 +22,8 @@ public class TestError {
 
 	@Test
 	public void test() throws Exception {
+		String str = "欢迎使用ansj_seg,(ansj中文分词)在这里如果你遇到什么问题都可以联系我.我一定尽我所能.帮助大家.ansj_seg更快,更准,更自由!" ;
+		 System.out.println(ToAnalysis.parse(str));
 
 //		LearnTool tool = new LearnTool();
 //		System.out.println(NlpAnalysis.parse("这次回家，我经济南下广州", tool));
@@ -131,6 +133,8 @@ public class TestError {
 		System.out.println(DATDictionary.getItem(" "));
 		System.out.println(DATDictionary.getItem("	"));
 
+		
+		System.out.println(NlpAnalysis.parse("2015年无锡市突发环境事件"));
 
 	}
 }

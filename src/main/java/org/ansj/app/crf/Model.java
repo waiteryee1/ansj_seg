@@ -1,107 +1,52 @@
 package org.ansj.app.crf;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.FileInputStream;
+import java.io.DataInputStream;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.logging.Logger;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
-import org.ansj.app.crf.pojo.Element;
-import org.ansj.app.crf.pojo.Feature;
-import org.ansj.app.crf.pojo.Template;
+import org.ansj.app.crf.model.CRFModel;
+import org.ansj.app.crf.model.CRFppTxtModel;
+import org.ansj.app.crf.model.WapitiCRFModel;
 import org.nlpcn.commons.lang.tire.domain.SmartForest;
+import org.nlpcn.commons.lang.util.IOUtil;
+import org.nlpcn.commons.lang.util.MapCount;
 
 public abstract class Model {
 
-	public static enum MODEL_TYPE {
-		CRF, EMM
-	};
+	protected static final Logger LOG = Logger.getLogger("CRF");
 
-	protected Template template = null;
+	protected String name;
 
-	protected double[][] status = null;
+	protected Config config;
 
-	protected Map<String, Feature> myGrad;
+	protected SmartForest<float[]> featureTree = null;
 
-	protected SmartForest<double[][]> smartForest = null;
+	protected float[][] status = new float[Config.TAG_NUM][Config.TAG_NUM];
 
 	public int allFeatureCount = 0;
 
-	private List<Element> leftList = null;
-
-	private List<Element> rightList = null;
-
-	public int end1;
-
-	public int end2;
+	public Model(String name) {
+		this.name = name;
+	};
 
 	/**
-	 * 根据模板文件解析特征
+	 * 判断当前数据流是否是本实例
 	 * 
-	 * @param template
-	 * @throws IOException
+	 * @param is
+	 * @return
 	 */
-	private void makeSide(int left, int right) throws IOException {
-		// TODO Auto-generated method stub
-
-		leftList = new ArrayList<Element>(Math.abs(left));
-		for (int i = left; i < 0; i++) {
-			leftList.add(new Element((char) ('B' + i)));
-		}
-
-		rightList = new ArrayList<Element>(right);
-		for (int i = 1; i < right + 1; i++) {
-			rightList.add(new Element((char) ('B' + i)));
-		}
-	}
-
-	/**
-	 * 讲模型写入
-	 * 
-	 * @param path
-	 * @throws FileNotFoundException
-	 * @throws IOException
-	 */
-	public void writeModel(String path) throws FileNotFoundException, IOException {
-		// TODO Auto-generated method stub
-
-		System.out.println("compute ok now to save model!");
-		// 写模型
-		ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(new GZIPOutputStream(new FileOutputStream(path))));
-
-		// 配置模板
-		oos.writeObject(template);
-		// 特征转移率
-		oos.writeObject(status);
-		// 总共的特征数
-		oos.writeInt(myGrad.size());
-		double[] ds = null;
-		for (Entry<String, Feature> entry : myGrad.entrySet()) {
-			oos.writeUTF(entry.getKey());
-			for (int i = 0; i < template.ft.length; i++) {
-				ds = entry.getValue().w[i];
-				for (int j = 0; j < ds.length; j++) {
-					oos.writeByte(j);
-					oos.writeFloat((float) ds[j]);
-				}
-				oos.writeByte(-1);
-			}
-		}
-
-		oos.flush();
-		oos.close();
-
-	}
+	public abstract boolean checkModel(String modelPath) throws IOException;
 
 	/**
 	 * 模型读取
@@ -113,73 +58,71 @@ public abstract class Model {
 	 * @throws IOException
 	 * @throws ClassNotFoundException
 	 */
-	public static Model loadModel(String modelPath) throws Exception {
-		return loadModel(new FileInputStream(modelPath));
-
-	}
-
-	public static Model loadModel(InputStream modelStream) throws Exception {
-		ObjectInputStream ois = null;
+	public static Model load(String name, String modelPath) throws Exception {
+		InputStream is = null;
 		try {
-			ois = new ObjectInputStream(new BufferedInputStream(new GZIPInputStream(modelStream)));
 
-			Model model = new Model() {
+			Model model = new CRFModel(name);
 
-				@Override
-				public void writeModel(String path) throws FileNotFoundException, IOException {
-					// TODO Auto-generated method stub
-					throw new RuntimeException("you can not to calculate ,this model only use by cut ");
-				}
-
-			};
-
-			model.template = (Template) ois.readObject();
-
-			model.makeSide(model.template.left, model.template.right);
-
-			int tagNum = model.template.tagNum;
-
-			int featureNum = model.template.ft.length;
-
-			model.smartForest = new SmartForest<double[][]>(0.8);
-
-			model.status = (double[][]) ois.readObject();
-
-			// 总共的特征数
-			double[][] w = null;
-			String key = null;
-			int b = 0;
-			int featureCount = ois.readInt();
-			for (int i = 0; i < featureCount; i++) {
-				key = ois.readUTF();
-				w = new double[featureNum][0];
-				for (int j = 0; j < featureNum; j++) {
-					while ((b = ois.readByte()) != -1) {
-						if (w[j].length == 0) {
-							w[j] = new double[tagNum];
-						}
-						w[j][b] = ois.readFloat();
-					}
-				}
-				model.smartForest.add(key, w);
+			if (model.checkModel(modelPath)) {
+				model.loadModel(modelPath);
+				return model;
 			}
 
-			return model;
+			model = new CRFppTxtModel(name);
+
+			if (model.checkModel(modelPath)) {
+				model.loadModel(modelPath);
+				return model;
+			}
+
+			model = new WapitiCRFModel(name);
+
+			if (model.checkModel(modelPath)) {
+				model.loadModel(modelPath);
+				return model;
+			}
 		} finally {
-			if (ois != null) {
-				ois.close();
+			if (is != null) {
+				is.close();
 			}
 		}
+
+		throw new Exception("I did not know waht type of model by file " + modelPath);
+
 	}
 
-	public double[] getFeature(int featureIndex, char... chars) {
-		// TODO Auto-generated method stub
-		SmartForest<double[][]> sf = smartForest;
+	/**
+	 * 不同的模型实现自己的加载模型类
+	 * 
+	 * @throws Exception
+	 */
+	public abstract void loadModel(String modelPath) throws Exception;
+
+	/**
+	 * 获得特征所在权重数组
+	 * 
+	 * @param featureStr
+	 * @return
+	 */
+	public float[] getFeature(char... chars) {
+		if (chars == null) {
+			return null;
+		}
+		SmartForest<float[]> sf = featureTree;
 		sf = sf.getBranch(chars);
 		if (sf == null || sf.getParam() == null) {
 			return null;
 		}
-		return sf.getParam()[featureIndex];
+		return sf.getParam();
+	}
+
+	public String getName() {
+		return this.name;
+	};
+
+	public Config getConfig() {
+		return this.config;
 	}
 
 	/**
@@ -189,9 +132,82 @@ public abstract class Model {
 	 * @param s2
 	 * @return
 	 */
-	public double tagRate(int s1, int s2) {
-		// TODO Auto-generated method stub
+	public float tagRate(int s1, int s2) {
 		return status[s1][s2];
 	}
 
+	/**
+	 * 增加特征到特征数中
+	 * 
+	 * @param cs
+	 * @param tempW
+	 */
+	protected static void printFeatureTree(String cs, float[] tempW) {
+		String name = "*";
+		if (tempW.length == 4) {
+			name = "U";
+		}
+
+		name += "*" + ((int) cs.charAt(cs.length() - 1) - Config.FEATURE_BEGIN + 1) + ":" + cs.substring(0, cs.length() - 1);
+		for (int i = 0; i < tempW.length; i++) {
+			if (tempW[i] != 0) {
+				System.out.println(name + "\t" + Config.getTagName(i / 4 - 1) + "\t" + Config.getTagName(i % 4) + "\t" + tempW[i]);
+			}
+
+		}
+	}
+
+	/**
+	 * 将model序列化到硬盘
+	 * 
+	 * @param path
+	 * @throws IOException
+	 * @throws FileNotFoundException
+	 */
+	public void writeModel(String path) throws FileNotFoundException, IOException {
+		ObjectOutputStream oos = null;
+		try {
+
+			oos = new ObjectOutputStream(new GZIPOutputStream(new FileOutputStream(new File(path))));
+
+			oos.writeUTF(CRFModel.version);
+
+			oos.writeObject(status);
+
+			oos.writeObject(config.getTemplate());
+
+			Map<String, float[]> map = featureTree.toMap();
+
+			MapCount<Integer> mc = new MapCount<Integer>();
+
+			for (float[] v : map.values()) {
+				mc.add(v.length);
+			}
+
+			for (Entry<Integer, Double> entry : mc.get().entrySet()) {
+				int win = entry.getKey();
+				oos.writeInt(win);// 宽度
+				oos.writeInt(entry.getValue().intValue());// 个数
+				for (Entry<String, float[]> e : map.entrySet()) {
+					if (e.getValue().length == win) {
+						oos.writeUTF(e.getKey());
+						float[] value = e.getValue();
+						for (int i = 0; i < win; i++) {
+							oos.writeFloat(value[i]);
+						}
+					}
+				}
+			}
+			oos.writeInt(0);
+			oos.writeInt(0);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (oos != null) {
+				oos.flush();
+				oos.close();
+			}
+		}
+	}
 }
