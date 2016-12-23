@@ -11,11 +11,14 @@ import org.ansj.domain.PersonNatureAttr;
 import org.ansj.domain.TermNature;
 import org.ansj.domain.TermNatures;
 import org.ansj.library.name.PersonAttrLibrary;
-import org.ansj.util.MyStaticValue;
 import org.nlpcn.commons.lang.dat.DoubleArrayTire;
 import org.nlpcn.commons.lang.dat.Item;
+import org.nlpcn.commons.lang.util.logging.Log;
+import org.nlpcn.commons.lang.util.logging.LogFactory;
 
 public class DATDictionary {
+
+	private static final Log LOG = LogFactory.getLog(DATDictionary.class);
 
 	/**
 	 * 所有在词典中出现的词,并且承担简繁体转换的任务.
@@ -38,22 +41,12 @@ public class DATDictionary {
 	 * @return
 	 */
 	private static DoubleArrayTire loadDAT() {
-
 		long start = System.currentTimeMillis();
-
 		try {
-
 			DoubleArrayTire dat = DoubleArrayTire.loadText(DicReader.getInputStream("core.dic"), AnsjItem.class);
-
-			/**
-			 * 人名识别必备的
-			 */
+			// 人名识别必备的
 			personNameFull(dat);
-
-			/**
-			 * 记录词典中的词语，并且清除部分数据
-			 */
-
+			// 记录词典中的词语，并且清除部分数据
 			for (Item item : dat.getDAT()) {
 				if (item == null || item.getName() == null) {
 					continue;
@@ -71,20 +64,16 @@ public class DATDictionary {
 			}
 			// 特殊字符标准化
 			IN_SYSTEM['％'] = '%';
-
-			MyStaticValue.LIBRARYLOG.info("init core library ok use time :" + (System.currentTimeMillis() - start));
-
+			LOG.info("init core library ok use time : " + (System.currentTimeMillis() - start));
 			return dat;
 		} catch (InstantiationException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			LOG.warn("无法实例化", e);
 		} catch (IllegalAccessException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			LOG.warn("非法访问", e);
 		} catch (NumberFormatException e) {
-			e.printStackTrace();
+			LOG.warn("数字格式异常", e);
 		} catch (IOException e) {
-			e.printStackTrace();
+			LOG.warn("IO异常", e);
 		}
 
 		return null;
@@ -117,9 +106,9 @@ public class DATDictionary {
 			}
 
 			if ((ansjItem.termNatures) == null) {
-				if(temp.length()==1&&temp.charAt(0)<256){
+				if (temp.length() == 1 && temp.charAt(0) < 256) {
 					ansjItem.termNatures = TermNatures.NULL;
-				}else{
+				} else {
 					ansjItem.termNatures = new TermNatures(TermNature.NR);
 				}
 			}
@@ -157,7 +146,7 @@ public class DATDictionary {
 
 	public static AnsjItem getItem(String str) {
 		AnsjItem item = DAT.getItem(str);
-		if (item == null) {
+		if (item == null || item.getStatus() < 2) {
 			return AnsjItem.NULL;
 		}
 

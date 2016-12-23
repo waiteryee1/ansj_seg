@@ -1,7 +1,6 @@
 package org.ansj.app.crf.model;
 
 import java.io.BufferedReader;
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -28,21 +27,22 @@ import org.nlpcn.commons.lang.util.tuples.Pair;
  */
 public class WapitiCRFModel extends Model {
 
-	public WapitiCRFModel(String name) {
-		super(name);
+	public WapitiCRFModel loadModel(String modelPath) throws Exception {
+		try (InputStream is = IOUtil.getInputStream(modelPath)) {
+			return loadModel(is);
+		}
 	}
 
-	public void loadModel(String modelPath) throws Exception {
-
-		BufferedReader br = IOUtil.getReader(modelPath, IOUtil.UTF8);
+	public WapitiCRFModel loadModel(InputStream is) throws Exception {
+		BufferedReader br = IOUtil.getReader(is, IOUtil.UTF8);
 
 		long start = System.currentTimeMillis();
 
-		LOG.info("load wapiti model begin!");
+		logger.info("load wapiti model begin!");
 
 		String temp = br.readLine();
 
-		LOG.info(temp); // #mdl#2#123
+		logger.info(temp); // #mdl#2#123
 
 		Map<String, Integer> featureIndex = loadConfig(br);
 
@@ -51,21 +51,21 @@ public class WapitiCRFModel extends Model {
 			sb.append(Arrays.toString(t1) + " ");
 		}
 
-		LOG.info("featureIndex is " + featureIndex);
-		LOG.info("load template ok template : " + sb);
+		logger.info("featureIndex is " + featureIndex);
+		logger.info("load template ok template : " + sb);
 
 		int[] statusCoven = loadTagCoven(br);
 
 		List<Pair<String, String>> loadFeatureName = loadFeatureName(featureIndex, br);
 
-		LOG.info("load feature ok feature size : " + loadFeatureName.size());
+		logger.info("load feature ok feature size : " + loadFeatureName.size());
 
 		featureTree = new SmartForest<float[]>();
 
 		loadFeatureWeight(br, statusCoven, loadFeatureName);
 
-		LOG.info("load wapiti model ok ! use time :" + (System.currentTimeMillis() - start));
-
+		logger.info("load wapiti model ok ! use time :" + (System.currentTimeMillis() - start));
+		return this;
 	}
 
 	/**
@@ -97,7 +97,7 @@ public class WapitiCRFModel extends Model {
 		for (Pair<String, String> pair : featureNames) {
 
 			if (temp == null) {
-				LOG.warning(pair.getValue0() + "\t" + pair.getValue1() + " not have any weight ,so skip it !");
+				logger.warn(pair.getValue0() + "\t" + pair.getValue1() + " not have any weight ,so skip it !");
 				continue;
 			}
 
@@ -326,11 +326,9 @@ public class WapitiCRFModel extends Model {
 	}
 
 	@Override
-	public boolean checkModel(String modelPath) throws IOException {
-		InputStream is = null;
-		try {
-			is = IOUtil.getInputStream(modelPath);
+	public boolean checkModel(String modelPath) {
 
+		try (InputStream is = IOUtil.getInputStream(modelPath)) {
 			byte[] bytes = new byte[100];
 
 			is.read(bytes);
@@ -339,12 +337,8 @@ public class WapitiCRFModel extends Model {
 			if (string.startsWith("#mdl#")) { // 加载crf++ 的txt类型的modle
 				return true;
 			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		} finally {
-			if (is != null) {
-				is.close();
-			}
+		} catch (IOException e) {
+			logger.warn("IO异常", e);
 		}
 		return false;
 	}

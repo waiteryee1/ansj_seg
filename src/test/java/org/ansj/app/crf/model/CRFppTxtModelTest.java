@@ -17,11 +17,11 @@ import org.nlpcn.commons.lang.util.StringUtil;
 
 public class CRFppTxtModelTest {
 
-	private String modelPath = "/Users/sunjian/Documents/src/CRF++-0.58/test/model.txt";
+	private String modelPath = "src/test/resources/crf_txt.model";
 
 	private String testPath = "src/test/resources/corpus.txt";
 
-	private Model model = new CRFppTxtModel("CRFppModelTest");
+	private Model model = new CRFppTxtModel();
 
 	@Before
 	public void before() throws Exception {
@@ -96,12 +96,8 @@ public class CRFppTxtModelTest {
 			// 填充result
 			String[] result = temp_str.split("\t");
 			for (int i = 0; i < result.length; i++) {
-				try {
 					had_words_array[offe] = result[i];
 					offe += result[i].length();
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
-				}
 			}
 
 			offe = 0;
