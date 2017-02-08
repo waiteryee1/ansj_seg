@@ -1,6 +1,7 @@
 package org.ansj.library;
 
 import java.io.BufferedReader;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -88,7 +89,6 @@ public class DicLibrary {
 	 * 将用户自定义词典清空
 	 */
 	public static void clear(String key) {
-
 		get(key).clear();
 	}
 
@@ -137,6 +137,16 @@ public class DicLibrary {
 			forests[i] = get(keys[i]);
 		}
 		return forests;
+	}
+
+	/**
+	 * 根据keys获取词典集合
+	 * 
+	 * @param keys
+	 * @return
+	 */
+	public static Forest[] gets(Collection<String> keys) {
+		return gets(keys.toArray(new String[keys.size()]));
 	}
 
 	/**
@@ -254,8 +264,10 @@ public class DicLibrary {
 	}
 
 	public static void reload(String key) {
-		DIC.get(key).setV(null);
-		get(key);
+		KV<String, Forest> kv = DIC.get(key);
+		if (kv != null) {
+			DIC.get(key).setV(null);
+		}
 	}
 
 }

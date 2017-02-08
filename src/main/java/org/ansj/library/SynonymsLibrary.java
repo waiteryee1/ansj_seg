@@ -146,9 +146,10 @@ public class SynonymsLibrary {
 	 * @return
 	 */
 	public static void reload(String key) {
-
-		SYNONYMS.get(key).setV(null);
-		get(key);
+		KV<String, SmartForest<List<String>>> kv = SYNONYMS.get(key);
+		if (kv != null) {
+			SYNONYMS.get(key).setV(null);
+		}
 	}
 
 	public static Set<String> keys() {
